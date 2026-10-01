@@ -1,5 +1,3 @@
-import { Trash2, Plus, Play, Edit2, Check, X, RotateCcw } from 'lucide-react';
-
 const COLORS = [
   "#ef4444",
   "#f97316",
@@ -16,14 +14,13 @@ interface Option {
   color: string;
 }
 const DEFAULT_OPTIONS: Option[] = [
-  { id: '1', text: 'Pizza', color: COLORS[0] },
-  { id: '2', text: 'Burgers', color: COLORS[1] },
-  { id: '3', text: 'Sushi', color: COLORS[2] },
-  { id: '4', text: 'Salad', color: COLORS[3] },
-  { id: '5', text: 'Tacos', color: COLORS[4] },
-  { id: '6', text: 'Pasta', color: COLORS[5] },
+  { id: "1", text: "Pizza", color: COLORS[0] },
+  { id: "2", text: "Burgers", color: COLORS[1] },
+  { id: "3", text: "Sushi", color: COLORS[2] },
+  { id: "4", text: "Salad", color: COLORS[3] },
+  { id: "5", text: "Tacos", color: COLORS[4] },
+  { id: "6", text: "Pasta", color: COLORS[5] },
 ];
-
 
 function App() {
   const radius = 150;
@@ -57,7 +54,7 @@ function App() {
       x2,
       y2,
       largeArcFlag,
-      path
+      path,
     });
     return `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
   };
@@ -79,18 +76,24 @@ function App() {
               Spin the Wheel
             </div>
             <div className="text-slate-300 font-medium text-lg mt-4">
-              <div style={{ position: 'relative', width: '300px', height: '300px' }}>
+              <div
+                style={{
+                  position: "relative",
+                  width: "300px",
+                  height: "300px",
+                }}
+              >
                 <div
                   style={{
-                    position: 'absolute',
-                    top: '-10px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '0',
-                    height: '0',
-                    borderLeft: '15px solid transparent',
-                    borderRight: '15px solid transparent',
-                    borderTop: '25px solid #333',
+                    position: "absolute",
+                    top: "-10px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: "0",
+                    height: "0",
+                    borderLeft: "15px solid transparent",
+                    borderRight: "15px solid transparent",
+                    borderTop: "25px solid #333",
                     zIndex: 10,
                   }}
                 />
@@ -100,14 +103,16 @@ function App() {
                   viewBox="0 0 300 300"
                   style={{
                     transform: `rotate(${180}deg)`,
-                    transition: 'transform 5s cubic-bezier(0.2, 0.9, 0.1, 1)', 
-                    borderRadius: '50%',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                    animation: 'spinEndlessly 0.5s linear infinite'
+                    transition: "transform 5s cubic-bezier(0.2, 0.9, 0.1, 1)",
+                    borderRadius: "50%",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+                    animation: "spinEndlessly 0.5s linear infinite",
                   }}
                 >
                   {[...DEFAULT_OPTIONS].map((option, index) => {
-                    const midAngle = (index * 360) / DEFAULT_OPTIONS.length + 360 / DEFAULT_OPTIONS.length / 2;
+                    const midAngle =
+                      (index * 360) / DEFAULT_OPTIONS.length +
+                      360 / DEFAULT_OPTIONS.length / 2;
                     return (
                       <g key={index}>
                         <path
@@ -141,7 +146,7 @@ function App() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
