@@ -1,5 +1,5 @@
-import { useState, useRef, type KeyboardEvent } from "react";
-import { Trash2, Plus, Play, Edit2, Check, RotateCcw } from "lucide-react";
+import { useState, useRef } from "react";
+import { Trash2, Play, Edit2, Check, RotateCcw, X, Layers } from "lucide-react";
 
 const COLORS = [
   "#ef4444",
@@ -18,44 +18,49 @@ interface Option {
   color: string;
 }
 
-const DEFAULT_OPTIONS: Option[] = [
-  { id: "1", text: "Smoke", color: COLORS[0] },
-  { id: "2", text: "Burgers", color: COLORS[1] },
-  { id: "3", text: "Sushi", color: COLORS[2] },
-  { id: "4", text: "Salad", color: COLORS[3] },
-  { id: "5", text: "Tacos", color: COLORS[4] },
-  { id: "6", text: "Pasta", color: COLORS[5] },
-];
+const DEFAULT_OPTIONS: Option[] = [];
 
 export default function App1() {
   const [options, setOptions] = useState<Option[]>(DEFAULT_OPTIONS);
-  const [newOptionText, setNewOptionText] = useState("");
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState<Option | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [errorMsg,setErrorMsg]=useState<String|null>(null);
+  // Popup States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+
 
   const wheelRef = useRef<HTMLDivElement>(null);
 
   const handleSpin = () => {
-    if (options.length < 2 || isSpinning) return;
+const COOLDOWN_MS =  30 * 60 * 1000; 
+var coolDownTimer = localStorage.getItem("SpinWheelTimer");
+var currentTime = Date.now();
+if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
+    console.log("Cooldown finished! You can spin the wheel.");
+    localStorage.setItem("SpinWheelTimer", currentTime.toString());
+} else {
+    var msLeft = COOLDOWN_MS - (currentTime - Number(coolDownTimer));
+    var minsLeft = Math.floor(msLeft / (1000 * 60)); 
+    var secsLeft = Math.floor((msLeft % (1000 * 60)) / 1000);
+    setErrorMsg(`Wheel is locked. Try again in ${minsLeft} Min(s) ${secsLeft} Sec(s).`);
+    setTimeout(() => {
+      setErrorMsg(null);
+    }, 2000);
+    return
+}
 
+    if (options.length < 2 || isSpinning) return;
     setWinner(null);
     setIsSpinning(true);
-
-    // Calculate a random extra rotation between 0 and 360
     const extraDegrees = Math.floor(Math.random() * 360);
-    // Base spins (e.g., 5 full rotations)
     const baseSpins = 360 * 5;
     const totalRotation = rotation + baseSpins + extraDegrees;
-
     setRotation(totalRotation);
-
-    // Calculate which slice will be at the top (0 degrees / pointer position)
     setTimeout(() => {
-      // The wheel rotates clockwise. The pointer is at the TOP (0 degrees of our rotated frame).
-      // If we rotated by R degrees, the point that is now at the top is (360 - (R % 360)) % 360.
       const normalizedRotation = totalRotation % 360;
       const topPointAngle = (360 - normalizedRotation) % 360;
 
@@ -64,25 +69,25 @@ export default function App1() {
 
       setWinner(options[winningIndex]);
       setIsSpinning(false);
-    }, 5000); // Wait for the 5s transition to finish
+    }, 5000); 
   };
 
-  const addOption = () => {
-    if (newOptionText.trim() === "") return;
-    const nextColor = COLORS[options.length % COLORS.length];
-    setOptions([
-      ...options,
-      {
-        id: Date.now().toString(),
-        text: newOptionText.trim(),
-        color: nextColor,
-      },
-    ]);
-    setNewOptionText("");
-  };
+  const handleBulkAdd = () => {
+    const lines = bulkText.split("\n").map(line => line.trim()).filter(line => line !== "");
+    if (lines.length === 0) {
+      setIsModalOpen(false);
+      return;
+    }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") addOption();
+    const newOptions = lines.map((line, idx) => ({
+      id: Date.now().toString() + idx,
+      text: line,
+      color: COLORS[(options.length + idx) % COLORS.length],
+    }));
+
+    setOptions([...options, ...newOptions]);
+    setBulkText("");
+    setIsModalOpen(false);
   };
 
   const removeOption = (id: string) => {
@@ -142,11 +147,9 @@ export default function App1() {
       const endAngle = (index + 1) * sliceAngle;
       const largeArcFlag = sliceAngle > 180 ? 1 : 0;
 
-      // Convert angles to radians
       const startRad = (Math.PI * startAngle) / 180;
       const endRad = (Math.PI * endAngle) / 180;
 
-      // Calculate path coordinates
       const startX = center + radius * Math.cos(startRad);
       const startY = center + radius * Math.sin(startRad);
       const endX = center + radius * Math.cos(endRad);
@@ -154,26 +157,17 @@ export default function App1() {
 
       const pathData = `M ${center} ${center} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
 
-      // Text positioning (middle of the slice)
       const midAngle = startAngle + sliceAngle / 2;
       const midRad = (Math.PI * midAngle) / 180;
-      // Position text closer to the edge
       const textRadius = radius * 0.65;
       const textX = center + textRadius * Math.cos(midRad);
       const textY = center + textRadius * Math.sin(midRad);
 
-      // Truncate long text
-      const displayText =
-        opt.text.length > 12 ? opt.text.substring(0, 10) + "..." : opt.text;
+      const displayText = opt.text.length > 12 ? opt.text.substring(0, 10) + "..." : opt.text;
 
       return (
         <g key={opt.id}>
-          <path
-            d={pathData}
-            fill={opt.color}
-            stroke="white"
-            strokeWidth="0.5"
-          />
+          <path d={pathData} fill={opt.color} stroke="white" strokeWidth="0.5" />
           <text
             x={textX}
             y={textY}
@@ -182,7 +176,6 @@ export default function App1() {
             fill="white"
             fontSize="4.5"
             fontWeight="bold"
-            // Rotate text to align with the slice slice
             transform={`rotate(${midAngle}, ${textX}, ${textY})`}
             style={{ textShadow: "0px 1px 2px rgba(0,0,0,0.4)" }}
           >
@@ -194,136 +187,154 @@ export default function App1() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col items-center py-10 px-4 sm:px-6 relative">
+      
+      {/* --- ADD OPTIONS POPUP MODAL --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-1 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Add Options</h3>
+            <p className="text-sm text-slate-500 mb-4">Type your options below. Put each option on a new line.</p>
+            
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"Pizza\nBurgers\nSushi\nTacos"}
+              rows={6}
+              className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl px-4 py-3 outline-none transition-all resize-none custom-scrollbar"
+              autoFocus
+            />
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleBulkAdd}
+                className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+              >
+                Add Options
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ------------------------------- */}
+
       {/* Header */}
-      <div className="text-center mb-10 w-full max-w-4xl">
-        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl flex items-center justify-center gap-3">
-          <RotateCcw className="w-10 h-10 text-indigo-600" />
+      <div className="text-center mb-8 w-full max-w-2xl">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl flex items-center justify-center gap-3">
+          <RotateCcw className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" />
           Spin The Wheel
         </h1>
-        <p className="mt-4 text-lg text-slate-500">
-          Add your options, click spin, and let fate decide!
+        <p className="mt-3 text-base sm:text-lg text-slate-500">
+          {errorMsg ?errorMsg   : 'Add your options, click spin, and let fate decide!'}
         </p>
       </div>
 
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        {/* Left Side - The Wheel */}
-        <div className="flex flex-col items-center justify-center relative bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50">
-          {/* Winner Banner */}
-          <div className="h-16 mb-4 w-full flex items-center justify-center">
-            {winner ? (
-              <div className="animate-bounce bg-indigo-600 text-white px-6 py-3 rounded-full text-xl font-bold shadow-lg flex items-center gap-2">
-                Winner: {winner.text}! 🎉
-              </div>
-            ) : (
-              <div className="text-slate-400 font-medium text-lg">
-                {isSpinning ? "Spinning..." : "Waiting to spin..."}
-              </div>
-            )}
-          </div>
-
-          <div className="relative w-full max-w-[400px] aspect-square flex items-center justify-center">
-            {/* Pointer (Top Center) */}
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 w-8 h-12 flex flex-col items-center drop-shadow-md">
-              <div className="w-6 h-8 bg-slate-800 rounded-t-md"></div>
-              <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[16px] border-t-slate-800 -mt-1"></div>
-            </div>
-
-            {/* SVG Wheel Container */}
-            <div
-              ref={wheelRef}
-              className="w-full h-full rounded-full shadow-2xl bg-slate-200 overflow-hidden border-4 border-slate-800"
-              style={{
-                // We rotate the container by -90deg so that 0 degrees starts at the top instead of the right side.
-                // We add the dynamic rotation on top of that.
-                transform: `rotate(${-90 + rotation}deg)`,
-                // CSS Transition for the realistic physics spin
-                transition: isSpinning
-                  ? "transform 5s cubic-bezier(0.2, 0.9, 0.1, 1)"
-                  : "none",
-              }}
+      {/* Single Section Container */}
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-10 flex flex-col items-center">
+        <div className="flex items-end flex-col w-100 p-3">
+           <button
+              onClick={() => setIsModalOpen(true)}
+              disabled={isSpinning}
+              className="flex items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold transition-colors disabled:opacity-50 text-sm sm:text-base"
             >
-              <svg
-                viewBox="0 0 100 100"
-                className="w-full h-full drop-shadow-sm"
-              >
-                {renderWheel()}
-
-                {/* Center dot */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="4"
-                  fill="#1e293b"
-                  stroke="white"
-                  strokeWidth="1.5"
-                />
-              </svg>
+              <Layers className="w-4 h-4" />
+              Add Options
+            </button>
+        </div>
+        {/* Winner Banner */}
+        <div className="h-14 mb-4 w-full flex items-center justify-center">
+          {winner ? (
+            <div className="animate-bounce bg-indigo-600 text-white px-6 py-2 rounded-full text-lg font-bold shadow-lg flex items-center gap-2">
+              Winner: {winner.text}! 🎉
             </div>
-          </div>
-
-          {/* Spin Button */}
-          <button
-            onClick={handleSpin}
-            disabled={isSpinning || options.length < 2}
-            className={`mt-10 px-10 py-4 rounded-full text-2xl font-bold uppercase tracking-wider text-white shadow-lg transition-all duration-200 flex items-center gap-3
-              ${
-                isSpinning || options.length < 2
-                  ? "bg-slate-400 cursor-not-allowed transform-none shadow-none"
-                  : "bg-indigo-600 hover:bg-indigo-500 hover:scale-105 hover:shadow-indigo-500/30 active:scale-95"
-              }`}
-          >
-            <Play className="w-6 h-6" fill="currentColor" />
-            Spin Now
-          </button>
-
-          {options.length < 2 && (
-            <p className="mt-3 text-red-500 text-sm font-medium">
-              Please add at least 2 options to spin.
-            </p>
+          ) : (
+            <div className="text-slate-400 font-medium text-base">
+              {isSpinning ? "Spinning..." : "Waiting to spin..."}
+            </div>
           )}
         </div>
 
-        {/* Right Side - Controls */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-8 flex flex-col h-[600px]">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6 border-b pb-4">
-            Manage Options
-          </h2>
-
-          {/* Add Option Input */}
-          <div className="flex gap-2 mb-6">
-            <input
-              type="text"
-              value={newOptionText}
-              onChange={(e) => setNewOptionText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Add a new option..."
-              className="flex-1 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl px-4 py-3 outline-none transition-all"
-              disabled={isSpinning}
-            />
-            <button
-              onClick={addOption}
-              disabled={!newOptionText.trim() || isSpinning}
-              className="bg-slate-800 text-white px-5 py-3 rounded-xl hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+        {/* The Wheel */}
+        <div className="relative w-full max-w-[350px] aspect-square flex items-center justify-center mb-8">
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 w-8 h-12 flex flex-col items-center drop-shadow-md">
+            <div className="w-6 h-8 bg-slate-800 rounded-t-md"></div>
+            <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[16px] border-t-slate-800 -mt-1"></div>
           </div>
 
-          {/* Options List */}
-          <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+          <div
+            ref={wheelRef}
+            className="w-full h-full rounded-full shadow-2xl bg-slate-200 overflow-hidden border-4 border-slate-800"
+            style={{
+              transform: `rotate(${-90 + rotation}deg)`,
+              transition: isSpinning
+                ? "transform 5s cubic-bezier(0.2, 0.9, 0.1, 1)"
+                : "none",
+            }}
+          >
+            <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
+              {renderWheel()}
+              <circle cx="50" cy="50" r="4" fill="#1e293b" stroke="white" strokeWidth="1.5" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Spin Button */}
+        <button
+          onClick={handleSpin}
+          disabled={isSpinning || options.length < 2}
+          className={`px-10 py-4 rounded-full text-xl font-bold uppercase tracking-wider text-white shadow-lg transition-all duration-200 flex items-center gap-3 mb-2
+            ${
+              isSpinning || options.length < 2
+                ? "bg-slate-400 cursor-not-allowed transform-none shadow-none"
+                : "bg-indigo-600 hover:bg-indigo-500 hover:scale-105 hover:shadow-indigo-500/30 active:scale-95"
+            }`}
+        >
+          <Play className="w-6 h-6" fill="currentColor" />
+          Spin Now
+        </button>
+
+        {options.length < 2 && (
+          <p className="mt-2 text-red-500 text-sm font-medium">
+            Please add at least 2 options to spin.
+          </p>
+        )}
+
+        {/* Divider */}
+        <div className="w-full h-px bg-slate-200 my-8"></div>
+
+        {/* Options Management Section */}
+        <div className="w-full flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-slate-800">
+              Options List
+            </h2>
+           
+          </div>
+
+          {/* Options List (Scrollable if too many) */}
+          <div className="w-full max-h-[250px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
             {options.map((option, index) => (
               <div
                 key={option.id}
                 className="group flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all"
               >
-                {/* Color Dot indicator */}
                 <div
                   className="w-4 h-4 rounded-full shadow-inner flex-shrink-0"
                   style={{ backgroundColor: option.color }}
                 />
 
-                {/* Editable Text */}
                 {editingId === option.id ? (
                   <div className="flex-1 flex gap-2">
                     <input
@@ -334,10 +345,7 @@ export default function App1() {
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                       className="flex-1 px-2 py-1 text-sm border-b-2 border-indigo-500 bg-transparent outline-none"
                     />
-                    <button
-                      onClick={saveEdit}
-                      className="text-green-600 hover:text-green-700 p-1"
-                    >
+                    <button onClick={saveEdit} className="text-green-600 hover:text-green-700 p-1">
                       <Check className="w-4 h-4" />
                     </button>
                   </div>
@@ -347,7 +355,6 @@ export default function App1() {
                   </span>
                 )}
 
-                {/* Actions (Edit / Delete) */}
                 {!isSpinning && editingId !== option.id && (
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -370,37 +377,34 @@ export default function App1() {
             ))}
 
             {options.length === 0 && (
-              <div className="text-center py-10 text-slate-400 italic">
-                No options added. Add some to spin the wheel!
+              <div className="text-center py-8 text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                No options added. Click "Add Options" to get started!
               </div>
             )}
           </div>
 
-          {/* Footer controls */}
-          <div className="mt-6 pt-4 border-t flex justify-between items-center text-sm text-slate-500">
+          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
             <span>Total Options: {options.length}</span>
             <button
-              onClick={() => !isSpinning && setOptions([])}
+              onClick={() => {if(!isSpinning)
+              { 
+                setOptions([])
+                setWinner(null);  
+              }
+              }}
               disabled={isSpinning || options.length === 0}
-              className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:hover:text-red-500"
+              className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:hover:text-red-500 font-medium"
             >
               Clear All
             </button>
           </div>
         </div>
       </div>
-      {/* Small inline style for custom scrollbar to keep layout clean */}
+
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #cbd5e1;
-          border-radius: 20px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
       `}</style>
     </div>
   );
