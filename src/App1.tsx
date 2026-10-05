@@ -27,31 +27,32 @@ export default function App1() {
   const [winner, setWinner] = useState<Option | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [errorMsg,setErrorMsg]=useState<String|null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  
   // Popup States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
-
   const wheelRef = useRef<HTMLDivElement>(null);
 
   const handleSpin = () => {
-const COOLDOWN_MS =  30 * 60 * 1000; 
-var coolDownTimer = localStorage.getItem("SpinWheelTimer");
-var currentTime = Date.now();
-if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
-    console.log("Cooldown finished! You can spin the wheel.");
-    localStorage.setItem("SpinWheelTimer", currentTime.toString());
-} else {
-    var msLeft = COOLDOWN_MS - (currentTime - Number(coolDownTimer));
-    var minsLeft = Math.floor(msLeft / (1000 * 60)); 
-    var secsLeft = Math.floor((msLeft % (1000 * 60)) / 1000);
-    setErrorMsg(`Wheel is locked. Try again in ${minsLeft} Min(s) ${secsLeft} Sec(s).`);
-    setTimeout(() => {
-      setErrorMsg(null);
-    }, 2000);
-    return
-}
+    const COOLDOWN_MS = 30 * 60 * 1000;
+    const coolDownTimer = localStorage.getItem("SpinWheelTimer");
+    const currentTime = Date.now();
+    
+    if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
+      console.log("Cooldown finished! You can spin the wheel.");
+      localStorage.setItem("SpinWheelTimer", currentTime.toString());
+    } else {
+      const msLeft = COOLDOWN_MS - (currentTime - Number(coolDownTimer));
+      const minsLeft = Math.floor(msLeft / (1000 * 60));
+      const secsLeft = Math.floor((msLeft % (1000 * 60)) / 1000);
+      setErrorMsg(`Wheel is locked. Try again in ${minsLeft} Min(s) ${secsLeft} Sec(s).`);
+      setTimeout(() => {
+        setErrorMsg(null);
+      }, 5000);
+      return;
+    }
 
     if (options.length < 2 || isSpinning) return;
     setWinner(null);
@@ -60,6 +61,7 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
     const baseSpins = 360 * 5;
     const totalRotation = rotation + baseSpins + extraDegrees;
     setRotation(totalRotation);
+    
     setTimeout(() => {
       const normalizedRotation = totalRotation % 360;
       const topPointAngle = (360 - normalizedRotation) % 360;
@@ -69,7 +71,7 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
 
       setWinner(options[winningIndex]);
       setIsSpinning(false);
-    }, 5000); 
+    }, 5000);
   };
 
   const handleBulkAdd = () => {
@@ -79,7 +81,27 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
       return;
     }
 
-    const newOptions = lines.map((line, idx) => ({
+    const existingTexts = new Set(options.map(opt => opt.text.toLowerCase()));
+    const uniqueLines: string[] = [];
+
+    // Filter out duplicates against existing options and within the bulk input itself
+    lines.forEach(line => {
+      const lowerLine = line.toLowerCase();
+      if (!existingTexts.has(lowerLine)) {
+        uniqueLines.push(line);
+        existingTexts.add(lowerLine);
+      }
+    });
+
+    if (uniqueLines.length === 0) {
+      setErrorMsg("No new options added. All items were duplicates.");
+      setTimeout(() => setErrorMsg(null), 3000);
+      setIsModalOpen(false);
+      setBulkText("");
+      return;
+    }
+
+    const newOptions = uniqueLines.map((line, idx) => ({
       id: Date.now().toString() + idx,
       text: line,
       color: COLORS[(options.length + idx) % COLORS.length],
@@ -102,10 +124,25 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
   };
 
   const saveEdit = () => {
+    const newText = editText.trim();
+    
+    // Prevent saving if the edited text matches another existing option
+    const isDuplicate = options.some(
+      (opt) => opt.id !== editingId && opt.text.toLowerCase() === newText.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      setErrorMsg("This option already exists.");
+      setTimeout(() => setErrorMsg(null), 3000);
+      setEditingId(null);
+      setEditText("");
+      return;
+    }
+
     setOptions(
       options.map((opt) =>
         opt.id === editingId
-          ? { ...opt, text: editText.trim() || opt.text }
+          ? { ...opt, text: newText || opt.text }
           : opt,
       ),
     );
@@ -205,7 +242,7 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
             <textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"Pizza\nBurgers\nSushi\nTacos"}
+              placeholder={"Run\nDrink Water\nTalk to Someone\nMeditate"}
               rows={6}
               className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl px-4 py-3 outline-none transition-all resize-none custom-scrollbar"
               autoFocus
@@ -236,14 +273,14 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
           <RotateCcw className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600" />
           Spin The Wheel
         </h1>
-        <p className="mt-3 text-base sm:text-lg text-slate-500">
-          {errorMsg ?errorMsg   : 'Add your options, click spin, and let fate decide!'}
+        <p className={`mt-3 text-base sm:text-lg ${errorMsg ? 'text-red-500 font-medium' : 'text-slate-500'}`}>
+          {errorMsg ? errorMsg : 'Add your options, click spin, and let fate decide!'}
         </p>
       </div>
 
       {/* Single Section Container */}
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-10 flex flex-col items-center">
-        <div className="flex items-end flex-col w-100 p-3">
+        <div className="flex items-end flex-col w-full p-3">
            <button
               onClick={() => setIsModalOpen(true)}
               disabled={isSpinning}
@@ -320,7 +357,6 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
             <h2 className="text-xl font-bold text-slate-800">
               Options List
             </h2>
-           
           </div>
 
           {/* Options List (Scrollable if too many) */}
@@ -386,11 +422,11 @@ if (!coolDownTimer || (currentTime - Number(coolDownTimer)) >= COOLDOWN_MS) {
           <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
             <span>Total Options: {options.length}</span>
             <button
-              onClick={() => {if(!isSpinning)
-              { 
-                setOptions([])
-                setWinner(null);  
-              }
+              onClick={() => {
+                if (!isSpinning) { 
+                  setOptions([])
+                  setWinner(null);  
+                }
               }}
               disabled={isSpinning || options.length === 0}
               className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:hover:text-red-500 font-medium"
